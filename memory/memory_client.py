@@ -1,22 +1,71 @@
-from memory.qdrant_client import *
-from memory.mem0_config import *
+import os
+import asyncio
+from dotenv import load_dotenv
+from mem0 import Memory
+
+load_dotenv()
+
+#CONFIGURATION FOR MEM0
+collection_name = "contextiq_v1.0" 
+qdrant_api_key = os.getenv('QDRANT_API_KEY')
+qdrant_url = "https://60ef5bf6-1994-4134-a1b7-f64738daac50.europe-west3-0.gcp.cloud.qdrant.io:6333"
+
+
+config = {
+    "vector_store": {
+        "provider": "qdrant",
+        "config": {
+            "collection_name": collection_name,
+            "url": qdrant_url,
+            "api_key": qdrant_api_key,
+        },
+    },
+    "llm": {
+        "provider": "gemini",
+        "config": {"model": "gemini-2.0-flash", "temperature": 0.1},
+    },
+    "embedder": {
+        "provider": "gemini",
+        "config": {"model": "gemini-embedding-001", "embedding_dims": 1536},
+    },
+}
+
 
 memory = Memory.from_config(config)
 
-def add_single_memory(memory:str,user_id:str) -> dict:
-    messages = [ {"role": "user", "content": memory} ]
-    result=memory.add(messages, user_id=user_id)
-    return {"status":"success","message":result}
+#WRAPPER FUNCTIONS FOR CRUD
+
+async def add_single_memory(context: str, user_id: str) -> dict:
+    messages = [{"role": "user", "content": context}]
+    result = await asyncio.to_thread(
+        memory.add, 
+        messages, 
+        user_id=user_id
+    )
+    return {"status": "success", "message": result}
 
 
-def add_interaction_memory(user_message:str,ai_response:str,user_id:str) -> dict:
-    messages = [ {"role": "user", "content": user_message} , {"role": "assistant", "content": ai_response}]
-    result=memory.add(messages, user_id=user_id)
-    return {"status":"success","message":result}
+
+async def add_interaction_memory(user_message: str, ai_response: str, user_id: str) -> dict:
+    messages = [
+        {"role": "user", "content": user_message},
+        {"role": "assistant", "content": ai_response}
+    ]
+    result = await asyncio.to_thread(
+        memory.add, 
+        messages, 
+        user_id=user_id
+    )
+    return {"status": "success", "message": result}
 
 
-def search_memory(message: str, user_id: str) -> str:   
-    mems = memory.search(message, user_id=user_id)
+
+async def search_memory(query: str, user_id: str) -> str:
+    mems = await asyncio.to_thread(
+        memory.search, 
+        query, 
+        user_id=user_id
+    )
     if mems.get("results"):
         context = "\n".join(f"- {m['memory']}" for m in mems["results"])
     else:
