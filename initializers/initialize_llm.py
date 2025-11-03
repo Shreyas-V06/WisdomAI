@@ -45,9 +45,8 @@ CHAT CONVERSATION:
     model=model_endpoint,
     contents=contents,
     config=types.GenerateContentConfig(
-        temperature=0.3,
-        max_output_tokens=256,
-    ),
+        temperature=0.3
+        ),
     )
     answer = response.text
     return answer

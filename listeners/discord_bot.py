@@ -38,29 +38,30 @@ async def on_message(message):
 
 @bot.command()
 async def add(ctx): 
-    await ctx.send("`Fetching channel history... This may take a moment.`")
+    await ctx.send("`Messages queued for reading. Context Synced`")
     global conversation_since_last_command
     if conversation_since_last_command=="":
         await ctx.send("No recent messages found to add.")
         return
     processed_context_string = invoke_conversation_processor(conversation=conversation_since_last_command)
+    print(processed_context_string)
     processed_contexts=processed_context_string.split("###END OF TOPIC###")
     for context in processed_contexts:
          success = await add_single_memory(
         context=context,
-        user_id=("testing")
+        user_id=("central-memories")
         )
     conversation_since_last_command=""
-    await ctx.send(f"✅ **Context Synced!**")
+    
 
 @bot.command()
 async def query(ctx,*,query):
     await ctx.send("`Searching the knowledge base..`")
     memories = await search_memory(
         query=query,
-        user_id=str("testing")
+        user_id=str("central-memories")
     )    
-    print("memories recieved ", memories)
+    # print("memories recieved ", memories)
     if len(memories) > 1900:
         output = f"Relevant memories:\n{memories[:1900]}\n... (truncated)"
     else:
@@ -70,22 +71,6 @@ async def query(ctx,*,query):
     response=llm.invoke(rag_prompt)
     await ctx.send(response.content)
 
-@bot.command()
-async def query(ctx,*,query):
-    await ctx.send("`Searching the knowledge base..`")
-    memories = await search_memory(
-        query=query,
-        user_id=str("testing")
-    )    
-    print("memories recieved ", memories)
-    if len(memories) > 1900:
-        output = f"Relevant memories:\n{memories[:1900]}\n... (truncated)"
-    else:
-        output = f"Relevant memories:\n{memories}"
-    rag_prompt=get_rag_prompt(context=output,query=query)
-    llm=initialize_chat_llm()
-    response=llm.invoke(rag_prompt)
-    await ctx.send(response.content)
 
 @bot.command()
 async def introduce(ctx):

@@ -6,7 +6,7 @@ from mem0 import Memory
 load_dotenv()
 
 #CONFIGURATION FOR MEM0
-collection_name = "contextiq_v2.0" 
+collection_name = "wisdom_v1_test" 
 qdrant_api_key = os.getenv('QDRANT_API_KEY')
 reranker_api_key=os.getenv('COHERE_API_KEY')
 qdrant_url = "https://60ef5bf6-1994-4134-a1b7-f64738daac50.europe-west3-0.gcp.cloud.qdrant.io:6333"
@@ -76,3 +76,27 @@ async def search_memory(query: str, user_id: str) -> str:
         context = "No relevant information found."
     return context
 
+def search_memory_sync(query: str) -> str:
+    mems = memory.search(
+        query, 
+        user_id="central-memories",
+        limit=15
+
+    )
+    if mems.get("results"):
+        context = "\n".join(f"- {m['memory']}" for m in mems["results"])
+    else:
+        context = "No relevant information found."
+    return context
+
+def add_interaction_memory_sync(user_message: str, ai_response: str, user_id: str , prompt:str=None) -> dict:
+    messages = [
+        {"role": "user", "content": user_message},
+        {"role": "assistant", "content": ai_response}
+    ]
+    result = memory.add(
+        messages, 
+        user_id=user_id,
+        prompt=prompt
+    )
+    return {"status": "success", "message": result}
