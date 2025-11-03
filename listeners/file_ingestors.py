@@ -139,7 +139,6 @@ def _extract_text_from_image(file_path: str) -> str:
         return f"[Image Error: {e}]"
 
 
-# --- Main Function ---
 
 def extract_text(file_path: str) -> str:
     if not os.path.exists(file_path):
@@ -170,9 +169,6 @@ def extract_text(file_path: str) -> str:
     except Exception as e:
         return f"Error: An unexpected error occurred while processing {file_path}: {e}"
 
-    # --- Final Text Cleaning ---
-    # Normalize all whitespace (newlines, tabs, etc.) into single spaces
-    # and strip leading/trailing whitespace.
     cleaned_text = " ".join(raw_text.split())
     
     return cleaned_text

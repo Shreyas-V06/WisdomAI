@@ -5,8 +5,8 @@ from discord.ext import commands
 from dotenv import load_dotenv
 from memory.memory_client import *
 from prompts.rag import *
-from prompts.add_conversation_memory import *
-from initializers.initialize_llm import *\
+from initializers.initialize_llm import *
+
 
 
 load_dotenv()
@@ -18,51 +18,40 @@ intents.message_content = True
 intents.members = True
 bot = commands.Bot(command_prefix="?", intents=intents)
 
+conversation_since_last_command=""
 
 @bot.event
 async def on_ready():
     print()
-    print()
     print("-------------------------")
-    print("| BOOTING UP THE SYSTEM |")
-    print(f"|   {bot.user.name}     |")
+    print("| DISCORD BOT IS LIVE ! |")
     print("-------------------------")
-    print()
     print()
 
 @bot.event
 async def on_message(message):
     if message.author == bot.user:
         return
+    global conversation_since_last_command
+    conversation_since_last_command+=f"{message.author}:{message.content}\n"
     await bot.process_commands(message)
 
 @bot.command()
-async def add_context(ctx): 
+async def add(ctx): 
     await ctx.send("`Fetching channel history... This may take a moment.`")
-    history_limit = 50
-    messages = []
-    async for msg in ctx.channel.history(limit=history_limit):
-        if (msg.author == bot.user or 
-            msg.id == ctx.message.id or 
-            msg.content.startswith(bot.command_prefix)):
-            continue
-        messages.append(f"{msg.author.name}: {msg.content}")
-    messages.reverse()
-    full_context = "\n".join(messages)
-    chat_listener_prompt=get_chat_listener_prompt()
-    if not full_context:
+    global conversation_since_last_command
+    if conversation_since_last_command=="":
         await ctx.send("No recent messages found to add.")
         return
-    success = await add_single_memory(
-        context=full_context,
-        user_id=("testing"),
-        prompt=chat_listener_prompt
-    )
-    if success.get("status") == "success":
-        await ctx.send(f"✅ **Context Synced!**")
-    else:
-        await ctx.send("An error occurred while adding context.")
-
+    processed_context_string = invoke_conversation_processor(conversation=conversation_since_last_command)
+    processed_contexts=processed_context_string.split("###END OF TOPIC###")
+    for context in processed_contexts:
+         success = await add_single_memory(
+        context=context,
+        user_id=("testing")
+        )
+    conversation_since_last_command=""
+    await ctx.send(f"✅ **Context Synced!**")
 
 @bot.command()
 async def query(ctx,*,query):
@@ -81,7 +70,22 @@ async def query(ctx,*,query):
     response=llm.invoke(rag_prompt)
     await ctx.send(response.content)
 
-
+@bot.command()
+async def query(ctx,*,query):
+    await ctx.send("`Searching the knowledge base..`")
+    memories = await search_memory(
+        query=query,
+        user_id=str("testing")
+    )    
+    print("memories recieved ", memories)
+    if len(memories) > 1900:
+        output = f"Relevant memories:\n{memories[:1900]}\n... (truncated)"
+    else:
+        output = f"Relevant memories:\n{memories}"
+    rag_prompt=get_rag_prompt(context=output,query=query)
+    llm=initialize_chat_llm()
+    response=llm.invoke(rag_prompt)
+    await ctx.send(response.content)
 
 @bot.command()
 async def introduce(ctx):
@@ -109,10 +113,16 @@ Beyond just remembering, I will also help **automatically track tasks** , highli
 ### 🛠️ Available Commands
 * `?query [your question]`: Ask a question to the team's knowledge base.
 * `?tasks`: See all tasks extracted from the conversations.
-* `?add_context`: add all the memories to the knowledge base.
+* `?add`: add all the conversation to the knowledge base.
 
 """
     await ctx.send(help_message)
+
+@bot.command()
+async def reset(ctx):
+    global conversation_since_last_command
+    conversation_since_last_command=""
+    await ctx.send("Conversation has been reset")
 
 if __name__ == "__main__":
     if not discord_token:
