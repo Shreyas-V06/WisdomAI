@@ -1,13 +1,15 @@
 import os
 import io
-from typing import List
-
+from fastapi import APIRouter,UploadFile,File,Form
+import tempfile
+from memory.memory_client import *
 # --- Core Libraries ---
 import fitz  # PyMuPDF for PDFs
 import docx  # python-docx for .docx
 from pptx import Presentation  # python-pptx for .pptx
 from PIL import Image  # Pillow for handling images
 
+file_router = APIRouter()
 # --- OCR Library ---
 try:
     import pytesseract
@@ -140,31 +142,28 @@ def _extract_text_from_image(file_path: str) -> str:
 
 
 
-def extract_text(file_path: str) -> str:
+def extract_text(file_path: str,ext:str) -> str:
     if not os.path.exists(file_path):
         return f"Error: File not found at {file_path}"
 
-    _, file_extension = os.path.splitext(file_path.lower())
-    raw_text = ""
-
     try:
-        if file_extension == ".pdf":
+        if ext=="pdf":
             raw_text = _extract_text_from_pdf(file_path)
             
-        elif file_extension == ".docx":
+        elif ext=="ocx":
             raw_text = _extract_text_from_docx(file_path)
             
-        elif file_extension == ".pptx":
+        elif ext=="ptx":
             raw_text = _extract_text_from_pptx(file_path)
             
-        elif file_extension == ".txt":
+        elif ext=="txt":
             raw_text = _extract_text_from_txt(file_path)
             
-        elif file_extension in [".png", ".jpg", ".jpeg", ".bmp", ".tiff"]:
+        elif ext in ["png", "jpg", "peg", "bmp", "iff"]:
             raw_text = _extract_text_from_image(file_path)
             
         else:
-            return f"Error: Unsupported file type: {file_extension}"
+            return f"Error: Unsupported file type"
 
     except Exception as e:
         return f"Error: An unexpected error occurred while processing {file_path}: {e}"
@@ -172,3 +171,16 @@ def extract_text(file_path: str) -> str:
     cleaned_text = " ".join(raw_text.split())
     
     return cleaned_text
+
+
+@file_router.post('/api/memory/uploadfile')
+async def query_file(uploaded_file:UploadFile=File(...)):
+    with tempfile.NamedTemporaryFile(delete=False) as tmp_file:
+        tmp_file.write(uploaded_file.file.read())
+        file_path = tmp_file.name
+    print("FILE_PATH: ",file_path)
+    file_ext=uploaded_file.filename[-3:]
+    content=extract_text(file_path=file_path,ext=file_ext)
+    print("FILE EXT=",file_ext)
+    result= await add_single_memory(context=content,user_id="central-memories")
+    return {"status":"success"}
